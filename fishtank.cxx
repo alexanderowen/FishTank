@@ -4,108 +4,109 @@
  * Renders a fish tank
  */
 
-#include "vtkSmartPointer.h"
-#include "vtkSphereSource.h"
-#include "vtkPolyDataMapper.h"
-#include "vtkCallbackCommand.h"
-#include "vtkCommand.h"
-#include "vtkActor.h"
-#include "vtkInteractorStyle.h"
-#include "vtkObjectFactory.h"
-#include "vtkRenderer.h"
-#include "vtkRenderWindow.h"
-#include "vtkRenderWindowInteractor.h"
-#include "vtkProperty.h"
-#include "vtkCamera.h"
-#include "vtkLight.h"
-#include "vtkOpenGLPolyDataMapper.h"
-#include "vtkJPEGReader.h"
-#include "vtkImageData.h"
-
-#include <vtkOBJReader.h>
-
-#include <vtkPolyData.h>
-#include <vtkPointData.h>
-#include <vtkPolyDataReader.h>
-#include <vtkPoints.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkFloatArray.h>
-#include <vtkDoubleArray.h>
+#include <vtkActor.h>
+#include <vtkCallbackCommand.h>
+#include <vtkCamera.h>
 #include <vtkCellArray.h>
+#include <vtkCommand.h>
+#include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
+#include <vtkImageData.h>
+#include <vtkInteractorStyle.h>
+#include <vtkJPEGReader.h>
+#include <vtkLight.h>
+#include <vtkOBJReader.h>
+#include <vtkObjectFactory.h>
+#include <vtkOpenGLPolyDataMapper.h>
+#include <vtkPointData.h>
+#include <vtkPoints.h>
+#include <vtkPolyData.h>
+#include <vtkPolyDataMapper.h>
+#include <vtkPolyDataReader.h>
+#include <vtkProperty.h>
+#include <vtkRenderWindow.h>
+#include <vtkRenderWindowInteractor.h>
+#include <vtkRenderer.h>
+#include <vtkSmartPointer.h>
+#include <vtkSphereSource.h>
+#include <vtkUnsignedCharArray.h>
 
 #include <string>
 
 class vtk441Mapper : public vtkOpenGLPolyDataMapper
 {
-  protected:
-   GLuint displayList;
-   bool   initialized;
-   float  size;
+    protected:
+        GLuint displayList;
+        bool   initialized;
+        float  size;
 
-  public:
-   vtk441Mapper()
-   {
-     initialized = false;
-     size = 1;
-   }
-    
-   void   IncrementSize()
-   {
-       size += 0.01;
-       if (size > 2.0)
-           size = 1.0;
-   }
+    public:
+        vtk441Mapper()
+        {
+          initialized = false;
+          size = 1;
+        }
+         
+        void IncrementSize()
+        {
+            size += 0.01;
+            if (size > 2.0)
+                size = 1.0;
+        }
 
-   void
-   RemoveVTKOpenGLStateSideEffects()
-   {
-     float Info[4] = { 0, 0, 0, 1 };
-     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, Info);
-     float ambient[4] = { 1,1, 1, 1.0 };
-     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient);
-     float diffuse[4] = { 1, 1, 1, 1.0 };
-     glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse);
-     float specular[4] = { 1, 1, 1, 1.0 };
-     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
-   }
+        void
+        RemoveVTKOpenGLStateSideEffects()
+        {
+          float Info[4]     = { 0, 0, 0, 1 };
+          float ambient[4]  = { 1,1, 1, 1.0 };
+          float diffuse[4]  = { 1, 1, 1, 1.0 };
+          float specular[4] = { 1, 1, 1, 1.0 };
+          glLightModelfv(GL_LIGHT_MODEL_AMBIENT, Info);
+          glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient);
+          glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse);
+          glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
+        }
 
-
-   void SetupLight(void)
-   {
-       glEnable(GL_LIGHTING);
-       glEnable(GL_LIGHT0);
-       GLfloat diffuse0[4] = { 0.8, 0.8, 0.8, 1 };
-       GLfloat ambient0[4] = { 0.2, 0.2, 0.2, 1 };
-       GLfloat specular0[4] = { 0.0, 0.0, 0.0, 1 };
-       GLfloat pos0[4] = { 1, 2, 3, 0 };
-       glLightfv(GL_LIGHT0, GL_POSITION, pos0);
-       glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse0);
-       glLightfv(GL_LIGHT0, GL_AMBIENT, ambient0);
-       glLightfv(GL_LIGHT0, GL_SPECULAR, specular0);
-       glDisable(GL_LIGHT1);
-       glDisable(GL_LIGHT2);
-       glDisable(GL_LIGHT3);
-       glDisable(GL_LIGHT5);
-       glDisable(GL_LIGHT6);
-       glDisable(GL_LIGHT7);
-   }
+        void SetupLight(void)
+        {
+            glEnable(GL_LIGHTING);
+            glEnable(GL_LIGHT0);
+            GLfloat diffuse0[4]  = { 0.8, 0.8, 0.8, 1 };
+            GLfloat ambient0[4]  = { 0.2, 0.2, 0.2, 1 };
+            GLfloat specular0[4] = { 0.0, 0.0, 0.0, 1 };
+            GLfloat pos0[4]      = { 1, 2, 3, 0 };
+            glLightfv(GL_LIGHT0, GL_POSITION, pos0);
+            glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse0);
+            glLightfv(GL_LIGHT0, GL_AMBIENT, ambient0);
+            glLightfv(GL_LIGHT0, GL_SPECULAR, specular0);
+            glDisable(GL_LIGHT1);
+            glDisable(GL_LIGHT2);
+            glDisable(GL_LIGHT3);
+            glDisable(GL_LIGHT5);
+            glDisable(GL_LIGHT6);
+            glDisable(GL_LIGHT7);
+        }
 };
 
 class vtk441MapperPart1 : public vtk441Mapper
 {
- public:
-   static vtk441MapperPart1 *New();
-   
-   virtual void RenderPiece(vtkRenderer *ren, vtkActor *act)
-   {
-      RemoveVTKOpenGLStateSideEffects();
-      SetupLight();
-      glBegin(GL_TRIANGLES);
-      glVertex3f(-10*size, -10*size, -10*size);
-      glVertex3f(10*size, -10*size, 10*size);
-      glVertex3f(10*size, 10*size, 10*size);
-      glEnd();
-   }
+    public:
+        static vtk441MapperPart1 *New();
+
+    // RenderPiece is called whenever geometry to be rendered. If not overwritten, defaults to
+    // superclass implementation
+    /* 
+        virtual void RenderPiece(vtkRenderer *ren, vtkActor *act)
+        {
+           RemoveVTKOpenGLStateSideEffects();
+           SetupLight();
+           glBegin(GL_TRIANGLES);
+           glVertex3f(-10*size, -10*size, -10*size);
+           glVertex3f(10*size, -10*size, 10*size);
+           glVertex3f(10*size, 10*size, 10*size);
+           glEnd();
+        }
+    */
 };
 
 vtkStandardNewMacro(vtk441MapperPart1);
@@ -194,8 +195,8 @@ int main()
     reader->SetFileName("../Models/obj/plane.obj");                                                            
     reader->Update(); 
 
-    vtkSmartPointer<vtkPolyDataMapper> windowMapper =                                                       
-      vtkSmartPointer<vtkPolyDataMapper>::New();                                                      
+    vtkSmartPointer<vtk441MapperPart1> windowMapper =                                                       
+      vtkSmartPointer<vtk441MapperPart1>::New();                                                      
     windowMapper->SetInputConnection(reader->GetOutputPort()); 
 /*
   vtkSmartPointer<vtk441MapperPart1> windowMapper =
