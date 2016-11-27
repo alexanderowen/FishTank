@@ -33,6 +33,8 @@
 
 #include <string>
 
+
+
 class vtk441Mapper : public vtkOpenGLPolyDataMapper
 {
     protected:
@@ -90,12 +92,54 @@ class vtk441Mapper : public vtkOpenGLPolyDataMapper
 
 class vtk441MapperPart1 : public vtk441Mapper
 {
+    private:
+        typedef vtk441Mapper super;
+
     public:
+        bool rotateLeft;
+        bool rotateRight; 
+
         static vtk441MapperPart1 *New();
+
+        vtk441MapperPart1() 
+        {
+            rotateLeft  = false;
+            rotateRight = false;
+        }
 
     // RenderPiece is called whenever geometry to be rendered. If not overwritten, defaults to
     // superclass implementation
-    /* 
+
+        virtual void RenderPiece(vtkRenderer *ren, vtkActor *act)
+        {
+            if (rotateLeft)
+            {
+                act->RotateY(1);
+                rotateLeft = false;
+            }
+            if (rotateRight)
+            {
+                act->RotateY(-1);
+                rotateRight = false;
+            }
+            super::RenderPiece(ren, act);    
+
+            /* Code to draw axes*/
+            glEnable(GL_COLOR_MATERIAL);
+            glBegin(GL_LINES);
+            glColor3ub(255, 0, 0);
+            glVertex3f(0, 0, 0);
+            glVertex3f(10, 0, 0);
+            glColor3ub(0, 255, 0);
+            glVertex3f(0, 0, 0);
+            glVertex3f(0, 10, 0);
+            glColor3ub(0, 0, 255);
+            glVertex3f(0, 0, 0);
+            glVertex3f(0, 0, 10);
+            glEnd();
+        }
+        
+   /*     
         virtual void RenderPiece(vtkRenderer *ren, vtkActor *act)
         {
            RemoveVTKOpenGLStateSideEffects();
@@ -176,6 +220,10 @@ class vtkTimerCallback : public vtkCommand
 
 void KeypressCallbackFunction (vtkObject* caller, long unsigned int eventId, void* clientData, void* callData);
 
+/* GLOBALS */
+vtk441MapperPart1 *fish;                                                      
+vtkRenderWindow   *window;
+
 int main()
 {
     // Dummy input so VTK pipeline is happy.
@@ -238,6 +286,7 @@ int main()
     ((vtkInteractorStyle *)iren->GetInteractorStyle())->SetAutoAdjustCameraClippingRange(0);
     iren->Initialize();
 
+/*
     // Sign up to receive TimerEvent
     vtkSmartPointer<vtkTimerCallback> cb = 
       vtkSmartPointer<vtkTimerCallback>::New();
@@ -245,15 +294,19 @@ int main()
     cb->SetMapper(windowMapper);
     cb->SetRenderWindow(windowRenderer);
     cb->SetCamera(renderer->GetActiveCamera());
-   
+*/
     vtkSmartPointer<vtkCallbackCommand> keypressCallback = 
       vtkSmartPointer<vtkCallbackCommand>::New();
     keypressCallback->SetCallback ( KeypressCallbackFunction );
     iren->AddObserver ( vtkCommand::KeyPressEvent, keypressCallback );
 
+/*
     int timerId = iren->CreateRepeatingTimer(10);  // repeats every 10 microseconds <--> 0.01 seconds
     std::cout << "timerId: " << timerId << std::endl;  
-   
+*/
+    fish = windowMapper; 
+    window = windowRenderer;
+
     iren->Start();
 
     return EXIT_SUCCESS;
@@ -263,10 +316,16 @@ void KeypressCallbackFunction( vtkObject* caller, long unsigned int vtkNotUsed(e
 {
     std::cout << "Keypress callback" << std::endl;
    
-    vtkRenderWindowInteractor *iren = 
-      static_cast<vtkRenderWindowInteractor*>(caller);
-   
-    std::cout << "Pressed: " << iren->GetKeySym() << std::endl;
+    vtkRenderWindowInteractor *iren = static_cast<vtkRenderWindowInteractor*>(caller);
+    
+    std::string key = iren->GetKeySym();
+    //std::cout << "Pressed: " << iren->GetKeySym() << std::endl;
+    if (key == "a")
+        fish->rotateLeft = true;
+    else if (key == "d")
+        fish->rotateRight = true;
+    window->Render();
+
 }
 
 
