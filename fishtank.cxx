@@ -98,13 +98,21 @@ class vtk441MapperPart1 : public vtk441Mapper
     public:
         bool rotateLeft;
         bool rotateRight; 
+        bool ascend;
+        bool descend;
+        bool moveForward;
+        bool moveBackward;
 
         static vtk441MapperPart1 *New();
 
         vtk441MapperPart1() 
         {
-            rotateLeft  = false;
-            rotateRight = false;
+            rotateLeft   = false;
+            rotateRight  = false;
+            ascend       = false;
+            descend      = false;
+            moveForward  = false;
+            moveBackward = false;
         }
 
     // RenderPiece is called whenever geometry to be rendered. If not overwritten, defaults to
@@ -121,6 +129,26 @@ class vtk441MapperPart1 : public vtk441Mapper
             {
                 act->RotateY(-1);
                 rotateRight = false;
+            }
+            if (ascend)
+            {
+                act->AddPosition(0, 1, 0);
+                ascend = false;
+            }
+            if (descend)
+            {
+                act->AddPosition(0, -1, 0);
+                descend = false;
+            }
+            if (moveForward)
+            {
+                act->AddPosition(1, 0, 0);
+                moveForward = false;
+            }
+            if (moveBackward)
+            {
+                act->AddPosition(-1, 0, 0);
+                moveBackward = false;
             }
             super::RenderPiece(ren, act);    
 
@@ -320,10 +348,18 @@ void KeypressCallbackFunction( vtkObject* caller, long unsigned int vtkNotUsed(e
     
     std::string key = iren->GetKeySym();
     //std::cout << "Pressed: " << iren->GetKeySym() << std::endl;
-    if (key == "a")
+    if (key == "Left")
         fish->rotateLeft = true;
-    else if (key == "d")
+    else if (key == "Right")
         fish->rotateRight = true;
+    else if (key == "a")
+        fish->ascend = true;
+    else if (key == "z")
+        fish->descend = true;
+    else if (key == "Up")
+        fish->moveForward = true;
+    else if (key == "Down")
+        fish->moveBackward = true;
     window->Render();
 
 }
