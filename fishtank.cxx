@@ -32,7 +32,8 @@
 #include <vtkUnsignedCharArray.h>
 
 #include <string>
-
+#include <sys/timeb.h>
+#include <sys/types.h>
 
 
 class vtk441Mapper : public vtkOpenGLPolyDataMapper
@@ -90,6 +91,20 @@ class vtk441Mapper : public vtkOpenGLPolyDataMapper
         }
 };
 
+int getMilliCount(){
+        timeb tb;
+        ftime(&tb);
+        int nCount = tb.millitm + (tb.time & 0xfffff) * 1000;
+        return nCount;
+}
+
+int getMilliSpan(int nTimeStart){
+        int nSpan = getMilliCount() - nTimeStart;
+        if(nSpan < 0)
+            nSpan += 0x100000 * 1000;
+        return nSpan;
+}
+
 class vtk441MapperPart1 : public vtk441Mapper
 {
     private:
@@ -102,6 +117,7 @@ class vtk441MapperPart1 : public vtk441Mapper
         bool descend;
         bool moveForward;
         bool moveBackward;
+        int lastTime;
 
         static vtk441MapperPart1 *New();
 
@@ -113,31 +129,37 @@ class vtk441MapperPart1 : public vtk441Mapper
             descend      = false;
             moveForward  = false;
             moveBackward = false;
+            lastTime     = 0; 
         }
 
-    // RenderPiece is called whenever geometry to be rendered. If not overwritten, defaults to
-    // superclass implementation
-
+        // RenderPiece is called whenever geometry to be rendered. If not overwritten, defaults to
+        // superclass implementation
         virtual void RenderPiece(vtkRenderer *ren, vtkActor *act)
         {
+            int curTime = getMilliCount(); 
+            double delta = getMilliSpan(lastTime) * 0.001;
+            double degrees = 45 * delta;
+            double position = 10 * delta;
+            //cerr << delta << endl;
+            lastTime = curTime;
             if (rotateLeft)
             {
-                act->RotateY(1);
+                act->RotateY(degrees);
                 rotateLeft = false;
             }
             if (rotateRight)
             {
-                act->RotateY(-1);
+                act->RotateY(-degrees);
                 rotateRight = false;
             }
             if (ascend)
             {
-                act->AddPosition(0, 1, 0);
+                act->AddPosition(0, position, 0);
                 ascend = false;
             }
             if (descend)
             {
-                act->AddPosition(0, -1, 0);
+                act->AddPosition(0, -position, 0);
                 descend = false;
             }
             if (moveForward)
@@ -185,64 +207,67 @@ vtkStandardNewMacro(vtk441MapperPart1);
 
 class vtkTimerCallback : public vtkCommand
 {
-  public:
-    static vtkTimerCallback *New()
-    {
-      vtkTimerCallback *cb = new vtkTimerCallback;
-      cb->TimerCount = 0;
-      cb->mapper = NULL;
-      cb->renWin = NULL;
-      cb->cam    = NULL;
-      cb->angle  = 0;
-      return cb;
-    }
-
-    void   SetMapper(vtkPolyDataMapper *m) { mapper = m; };
-    void   SetRenderWindow(vtkRenderWindow *rw) { renWin = rw; };
-    void   SetCamera(vtkCamera *c) { cam = c; };
- 
-    virtual void Execute(vtkObject *vtkNotUsed(caller), unsigned long eventId,
-                         void *vtkNotUsed(callData))
-    {
-      // THIS IS WHAT GETS CALLED EVERY TIMER
-      //cout << "Got a timer!!" << this->TimerCount << endl;
-
-      // NOW DO WHAT EVER ACTIONS YOU WANT TO DO...
-      if (vtkCommand::TimerEvent == eventId)
+    public:
+        static vtkTimerCallback *New()
         {
-        ++this->TimerCount;
+            vtkTimerCallback *cb = new vtkTimerCallback;
+            cb->TimerCount = 0;
+            cb->mapper = NULL;
+            cb->renWin = NULL;
+            cb->cam    = NULL;
+            cb->angle  = 0;
+            return cb;
         }
 
-      // Make a call to the mapper to make it alter how it renders...
-      // AO: Doesn't seem necessary to me
-      //if (mapper != NULL)
-        //    mapper->IncrementSize();
-
-      // Modify the camera...
-      if (cam != NULL)
-      {
-         cam->SetFocalPoint(0,0,0);
-         float rads = angle/360.0*2*3.14;
-         cam->SetPosition(70*cos(rads),0,70*sin(rads));
-         angle++;
-         if (angle > 360)
-            angle = 0;
-         cam->SetViewUp(0,1,0);
-         cam->SetClippingRange(20, 120);
-         cam->SetDistance(70);
-      }
-
-      // Force a render...
-      if (renWin != NULL)
-         renWin->Render();
-    }
+        void   SetMapper(vtkPolyDataMapper *m) { mapper = m; };
+        void   SetRenderWindow(vtkRenderWindow *rw) { renWin = rw; };
+        void   SetCamera(vtkCamera *c) { cam = c; };
  
-  private:
-    int TimerCount;
-    vtkPolyDataMapper *mapper;
-    vtkRenderWindow *renWin;
-    vtkCamera *cam;
-    float angle;
+        virtual void Execute(vtkObject *vtkNotUsed(caller), unsigned long eventId, void *vtkNotUsed(callData))
+        {
+            // THIS IS WHAT GETS CALLED EVERY TIMER
+            //cout << "Got a timer!!" << this->TimerCount << endl;
+      
+            // NOW DO WHAT EVER ACTIONS YOU WANT TO DO...
+            /*
+            if (vtkCommand::TimerEvent == eventId)
+            {
+                ++this->TimerCount;
+            }
+            */
+      
+            // Make a call to the mapper to make it alter how it renders...
+            // AO: Doesn't seem necessary to me
+            //if (mapper != NULL)
+              //    mapper->IncrementSize();
+      
+            // Modify the camera...
+            /*
+            if (cam != NULL)
+            {
+               cam->SetFocalPoint(0,0,0);
+               float rads = angle/360.0*2*3.14;
+               cam->SetPosition(70*cos(rads),0,70*sin(rads));
+               angle++;
+               if (angle > 360)
+                  angle = 0;
+               cam->SetViewUp(0,1,0);
+               cam->SetClippingRange(20, 120);
+               cam->SetDistance(70);
+            }
+            */
+      
+            // Force a render...
+            if (renWin != NULL)
+                renWin->Render();
+        }   
+ 
+    private:
+        int TimerCount;
+        vtkPolyDataMapper *mapper;
+        vtkRenderWindow *renWin;
+        vtkCamera *cam;
+        float angle;
 };
 
 
@@ -314,7 +339,6 @@ int main()
     ((vtkInteractorStyle *)iren->GetInteractorStyle())->SetAutoAdjustCameraClippingRange(0);
     iren->Initialize();
 
-/*
     // Sign up to receive TimerEvent
     vtkSmartPointer<vtkTimerCallback> cb = 
       vtkSmartPointer<vtkTimerCallback>::New();
@@ -322,16 +346,16 @@ int main()
     cb->SetMapper(windowMapper);
     cb->SetRenderWindow(windowRenderer);
     cb->SetCamera(renderer->GetActiveCamera());
-*/
+
+    // Setup keypress event handling
     vtkSmartPointer<vtkCallbackCommand> keypressCallback = 
       vtkSmartPointer<vtkCallbackCommand>::New();
     keypressCallback->SetCallback ( KeypressCallbackFunction );
     iren->AddObserver ( vtkCommand::KeyPressEvent, keypressCallback );
 
-/*
-    int timerId = iren->CreateRepeatingTimer(10);  // repeats every 10 microseconds <--> 0.01 seconds
-    std::cout << "timerId: " << timerId << std::endl;  
-*/
+    int timerId = iren->CreateRepeatingTimer(30);  // repeats every 30 milliseconds, ~30 FPS
+    //std::cout << "timerId: " << timerId << std::endl;  
+
     fish = windowMapper; 
     window = windowRenderer;
 
@@ -342,7 +366,7 @@ int main()
 
 void KeypressCallbackFunction( vtkObject* caller, long unsigned int vtkNotUsed(eventId), void* vtkNotUsed(clientData), void* vtkNotUsed(callData) )
 {
-    std::cout << "Keypress callback" << std::endl;
+    //std::cout << "Keypress callback" << std::endl;
    
     vtkRenderWindowInteractor *iren = static_cast<vtkRenderWindowInteractor*>(caller);
     
@@ -350,17 +374,17 @@ void KeypressCallbackFunction( vtkObject* caller, long unsigned int vtkNotUsed(e
     //std::cout << "Pressed: " << iren->GetKeySym() << std::endl;
     if (key == "Left")
         fish->rotateLeft = true;
-    else if (key == "Right")
+    if (key == "Right")
         fish->rotateRight = true;
-    else if (key == "a")
+    if (key == "a")
         fish->ascend = true;
-    else if (key == "z")
+    if (key == "z")
         fish->descend = true;
-    else if (key == "Up")
+    if (key == "Up")
         fish->moveForward = true;
-    else if (key == "Down")
+    if (key == "Down")
         fish->moveBackward = true;
-    window->Render();
+    //window->Render();
 
 }
 
