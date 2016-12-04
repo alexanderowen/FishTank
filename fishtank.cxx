@@ -279,21 +279,22 @@ vtkRenderWindow   *window;
 
 int main()
 {
+    /*
     // Dummy input so VTK pipeline is happy.
     //
     vtkSmartPointer<vtkSphereSource> sphere =
       vtkSmartPointer<vtkSphereSource>::New();
     sphere->SetThetaResolution(100);
     sphere->SetPhiResolution(50);
+    */
 
     // The mapper is responsible for pushing the geometry into the graphics
     // library. It may also do color mapping, if scalars or other attributes
     // are defined. 
-    //
   
     vtkSmartPointer<vtkOBJReader> reader =                                                            
-    vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader->SetFileName("../Models/obj/plane.obj");                                                            
+      vtkSmartPointer<vtkOBJReader>::New();                                                           
+    reader->SetFileName("../Models/obj/blowfish.obj");                                                            
     reader->Update(); 
 
     vtkSmartPointer<vtk441MapperPart1> windowMapper =                                                       
@@ -308,6 +309,20 @@ int main()
       vtkSmartPointer<vtkActor>::New();
     windowActor->SetMapper(windowMapper);
 
+// NEW STUFF
+    vtkSmartPointer<vtkOBJReader> reader2 =                                                            
+      vtkSmartPointer<vtkOBJReader>::New();                                                           
+    reader2->SetFileName("../Models/obj/floor.obj");
+    reader2->Update(); 
+
+    vtkSmartPointer<vtk441MapperPart1> windowMapper2 =                                                       
+      vtkSmartPointer<vtk441MapperPart1>::New();                                                      
+    windowMapper2->SetInputConnection(reader2->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> windowActor2 =
+      vtkSmartPointer<vtkActor>::New();
+    windowActor2->SetMapper(windowMapper2);
+// END NEW STUFF
     vtkSmartPointer<vtkRenderer> renderer =
       vtkSmartPointer<vtkRenderer>::New();
 
@@ -321,13 +336,14 @@ int main()
     iren->SetRenderWindow(windowRenderer);
 
     // Add the actors to the renderer, set the background and size.
-    //
     renderer->AddActor(windowActor);
-    renderer->SetBackground(0, 0, 0);
-    windowRenderer->SetSize(600, 600);
+    renderer->AddActor(windowActor2);
+    renderer->SetBackground(0, 0, 255);
+    renderer->SetBackground2(255, 255, 255);
+    renderer->GradientBackgroundOn();
+    windowRenderer->SetSize(750, 750);
 
     // Set up the lighting.
-    //
     renderer->GetActiveCamera()->SetFocalPoint(0,0,0);
     renderer->GetActiveCamera()->SetPosition(0,0,70);
     renderer->GetActiveCamera()->SetViewUp(0,1,0);
@@ -335,7 +351,6 @@ int main()
     renderer->GetActiveCamera()->SetDistance(170);
     
     // This starts the event loop and invokes an initial render.
-    //
     ((vtkInteractorStyle *)iren->GetInteractorStyle())->SetAutoAdjustCameraClippingRange(0);
     iren->Initialize();
 
