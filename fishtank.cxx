@@ -322,6 +322,9 @@ int main()
     vtkSmartPointer<vtkActor> windowActor2 =
       vtkSmartPointer<vtkActor>::New();
     windowActor2->SetMapper(windowMapper2);
+    windowActor2->SetScale(5.5);
+    windowActor2->SetPosition(0, -10, 0); 
+
 // END NEW STUFF
     vtkSmartPointer<vtkRenderer> renderer =
       vtkSmartPointer<vtkRenderer>::New();
@@ -341,7 +344,7 @@ int main()
     renderer->SetBackground(0, 0, 255);
     renderer->SetBackground2(255, 255, 255);
     renderer->GradientBackgroundOn();
-    windowRenderer->SetSize(750, 750);
+    windowRenderer->SetSize(650, 650);
 
     // Set up the lighting.
     renderer->GetActiveCamera()->SetFocalPoint(0,0,0);
