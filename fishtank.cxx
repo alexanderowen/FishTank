@@ -32,8 +32,12 @@
 #include <vtkUnsignedCharArray.h>
 
 #include <vtkInteractorStyleSwitch.h>
+#include <vtkLight.h>
 #include <vtkInteractorStyleJoystickActor.h>
+#include <vtkInteractorStyleJoystickCamera.h>
 #include <vtkProperty.h>
+#include <vtkIndent.h>
+#include <vtkLightCollection.h>
 
 #include <string>
 #include <sys/timeb.h>
@@ -427,7 +431,10 @@ int main()
 
     vtkSmartPointer<vtkActor> windowActor2 =
       vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkProperty> p = vtkSmartPointer<vtkProperty>::New();
+    p->SetDiffuseColor(0.0,0.0,0.45);
     windowActor2->SetMapper(windowMapper2);
+    windowActor2->SetProperty(p);
     windowActor2->SetScale(5.5);
     windowActor2->SetPosition(0, -10, 0); 
 
@@ -454,9 +461,9 @@ int main()
     renderer->AddActor(windowActor7);
     renderer->AddActor(winAct8);
     renderer->AddActor(winAct9);
-    renderer->SetBackground(0, 0, 255);
-    renderer->SetBackground2(255, 255, 255);
-    renderer->GradientBackgroundOn();
+    renderer->SetBackground(0, 0, 0);
+    //renderer->SetBackground2(255, 255, 255);
+    //renderer->GradientBackgroundOn();
     windowRenderer->SetSize(650, 650);
 
     // Set up the lighting.
@@ -465,9 +472,20 @@ int main()
     renderer->GetActiveCamera()->SetViewUp(0,1,0);
     renderer->GetActiveCamera()->SetClippingRange(20, 120);
     renderer->GetActiveCamera()->SetDistance(170);
+
+    //DEBUG
+    //renderer->GetLights()->PrintSelf(cerr, vtkIndent());
+    //renderer->GetLights()->Print(cerr);
+    renderer->RemoveAllLights();
+    vtkSmartPointer<vtkLight> l = vtkSmartPointer<vtkLight>::New();
+    l->SetAmbientColor(0.15, 0.15, 0.15); //doesn't seem to do anything :^/
+    l->SetPosition(0.5,0.5,0.5);
+    l->SetFocalPoint(0,0,0);
+    renderer->AddLight(l);
+    
    
-    vtkSmartPointer<vtkInteractorStyleJoystickActor> style = 
-      vtkSmartPointer<vtkInteractorStyleJoystickActor>::New();
+    vtkSmartPointer<vtkInteractorStyleJoystickCamera> style = 
+      vtkSmartPointer<vtkInteractorStyleJoystickCamera>::New();
   
     iren->SetInteractorStyle( style ); 
     // This starts the event loop and invokes an initial render.
