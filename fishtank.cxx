@@ -1,7 +1,8 @@
 /*
  * Author: Alexander Owen
  *
- * Renders a fish tank
+ * Renders a fish tank in VTK with models in the .obj format
+ * Uses VTK's OpenGL library
  */
 
 #include <vtkActor.h>
@@ -43,8 +44,34 @@
 #include <sys/timeb.h>
 #include <sys/types.h>
 
+/**************
+ *
+ * Utility functions 
+ *
+ **************/
 
-class vtk441Mapper : public vtkOpenGLPolyDataMapper
+int getMilliCount(){
+        timeb tb;
+        ftime(&tb);
+        int nCount = tb.millitm + (tb.time & 0xfffff) * 1000;
+        return nCount;
+}
+
+int getMilliSpan(int nTimeStart){
+        int nSpan = getMilliCount() - nTimeStart;
+        if(nSpan < 0)
+            nSpan += 0x100000 * 1000;
+        return nSpan;
+}
+
+/*************
+ *
+ * VTK OpenGL classes
+ *
+ * ***********/
+
+/* Class to extend VTK's OpenGL mapper */
+class vtkCustomMapper : public vtkOpenGLPolyDataMapper
 {
     protected:
         GLuint displayList;
@@ -52,7 +79,7 @@ class vtk441Mapper : public vtkOpenGLPolyDataMapper
         float  size;
 
     public:
-        vtk441Mapper()
+        vtkCustomMapper()
         {
           initialized = false;
           size = 1;
@@ -65,8 +92,8 @@ class vtk441Mapper : public vtkOpenGLPolyDataMapper
                 size = 1.0;
         }
 
-        void
-        RemoveVTKOpenGLStateSideEffects()
+        /* Reset phong lighting coefficients */
+        void RemoveVTKOpenGLStateSideEffects()
         {
           float Info[4]     = { 0, 0, 0, 1 };
           float ambient[4]  = { 1,1, 1, 1.0 };
@@ -78,6 +105,7 @@ class vtk441Mapper : public vtkOpenGLPolyDataMapper
           glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
         }
 
+        /* Set the global lighting coefficients  */
         void SetupLight(void)
         {
             glEnable(GL_LIGHTING);
@@ -99,24 +127,11 @@ class vtk441Mapper : public vtkOpenGLPolyDataMapper
         }
 };
 
-int getMilliCount(){
-        timeb tb;
-        ftime(&tb);
-        int nCount = tb.millitm + (tb.time & 0xfffff) * 1000;
-        return nCount;
-}
-
-int getMilliSpan(int nTimeStart){
-        int nSpan = getMilliCount() - nTimeStart;
-        if(nSpan < 0)
-            nSpan += 0x100000 * 1000;
-        return nSpan;
-}
-
-class vtk441MapperPart1 : public vtk441Mapper
+/* Class to extend OpenGL mapper  */
+class vtkCustomMapperP : public vtkCustomMapper
 {
     private:
-        typedef vtk441Mapper super;
+        typedef vtkCustomMapper super;
 
     public:
         bool rotateLeft;
@@ -129,9 +144,9 @@ class vtk441MapperPart1 : public vtk441Mapper
 
         bool displayAxes;
 
-        static vtk441MapperPart1 *New();
+        static vtkCustomMapperP *New();
 
-        vtk441MapperPart1() 
+        vtkCustomMapperP() 
         {
             rotateLeft   = false;
             rotateRight  = false;
@@ -151,7 +166,6 @@ class vtk441MapperPart1 : public vtk441Mapper
             double delta = getMilliSpan(lastTime) * 0.001;
             double degrees = 45 * delta;
             double position = 10 * delta;
-            //cerr << delta << endl;
             lastTime = curTime;
             if (rotateLeft)
             {
@@ -202,538 +216,444 @@ class vtk441MapperPart1 : public vtk441Mapper
                 glEnd();
             }
         }
-        
-   /*     
-        virtual void RenderPiece(vtkRenderer *ren, vtkActor *act)
-        {
-           RemoveVTKOpenGLStateSideEffects();
-           SetupLight();
-           glBegin(GL_TRIANGLES);
-           glVertex3f(-10*size, -10*size, -10*size);
-           glVertex3f(10*size, -10*size, 10*size);
-           glVertex3f(10*size, 10*size, 10*size);
-           glEnd();
-        }
-    */
 };
-
-vtkStandardNewMacro(vtk441MapperPart1);
-
-class vtkTimerCallback : public vtkCommand
-{
-    public:
-        static vtkTimerCallback *New()
-        {
-            vtkTimerCallback *cb = new vtkTimerCallback;
-            cb->TimerCount = 0;
-            cb->mapper = NULL;
-            cb->renWin = NULL;
-            cb->cam    = NULL;
-            cb->angle  = 0;
-            return cb;
-        }
-
-        void   SetMapper(vtkPolyDataMapper *m) { mapper = m; };
-        void   SetRenderWindow(vtkRenderWindow *rw) { renWin = rw; };
-        void   SetCamera(vtkCamera *c) { cam = c; };
- 
-        virtual void Execute(vtkObject *vtkNotUsed(caller), unsigned long eventId, void *vtkNotUsed(callData))
-        {
-            // THIS IS WHAT GETS CALLED EVERY TIMER
-            //cout << "Got a timer!!" << this->TimerCount << endl;
-      
-            // NOW DO WHAT EVER ACTIONS YOU WANT TO DO...
-            /*
-            if (vtkCommand::TimerEvent == eventId)
-            {
-                ++this->TimerCount;
-            }
-            */
-      
-            // Make a call to the mapper to make it alter how it renders...
-            // AO: Doesn't seem necessary to me
-            //if (mapper != NULL)
-              //    mapper->IncrementSize();
-      
-            // Modify the camera...
-            /*
-            if (cam != NULL)
-            {
-               cam->SetFocalPoint(0,0,0);
-               float rads = angle/360.0*2*3.14;
-               cam->SetPosition(70*cos(rads),0,70*sin(rads));
-               angle++;
-               if (angle > 360)
-                  angle = 0;
-               cam->SetViewUp(0,1,0);
-               cam->SetClippingRange(20, 120);
-               cam->SetDistance(70);
-            }
-            */
-      
-            // Force a render...
-            if (renWin != NULL)
-                renWin->Render();
-        }   
- 
-    private:
-        int TimerCount;
-        vtkPolyDataMapper *mapper;
-        vtkRenderWindow *renWin;
-        vtkCamera *cam;
-        float angle;
-};
+vtkStandardNewMacro(vtkCustomMapperP);
 
 
-void KeypressCallbackFunction (vtkObject* caller, long unsigned int eventId, void* clientData, void* callData);
+/***************
+ *
+ * Main function
+ *
+ * *************/
 
-/* GLOBALS */
-vtk441MapperPart1 *fish;                                                      
+/* Global variables */
+vtkCustomMapperP  *fish;                                                      
 vtkRenderWindow   *window;
 
 int main()
 {
-    // The mapper is responsible for pushing the geometry into the graphics
-    // library. It may also do color mapping, if scalars or other attributes
-    // are defined. 
- 
-    // GOLD FISH 
-    vtkSmartPointer<vtkOBJReader> reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader->SetFileName("../Models/obj/fish1.obj");                                                            
-    reader->Update(); 
+    /** Gold Fish **/
+    vtkSmartPointer<vtkOBJReader> GoldFishReader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    GoldFishReader->SetFileName("../Models/obj/fish1.obj");                                                            
+    GoldFishReader->Update(); 
 
-    vtkSmartPointer<vtk441MapperPart1> windowMapper = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    windowMapper->SetInputConnection(reader->GetOutputPort()); 
+    vtkSmartPointer<vtkCustomMapperP> goldFishMapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    goldFishMapper->SetInputConnection(GoldFishReader->GetOutputPort()); 
 
-    vtkSmartPointer<vtkActor> windowActor = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkActor> goldFishActor = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkProperty> goldFishProp = vtkSmartPointer<vtkProperty>::New();
+    goldFishProp->SetDiffuseColor(1, .426, .0);
+    goldFishActor->SetMapper(goldFishMapper);
+    goldFishActor->SetProperty(goldFishProp);
+    goldFishActor->SetPosition(17, -5, 0);
+    goldFishActor->RotateY(90);
 
-    vtkSmartPointer<vtkProperty> prop1 = vtkSmartPointer<vtkProperty>::New();
-    prop1->SetDiffuseColor(1, .426, .0);
-    windowActor->SetMapper(windowMapper);
-    windowActor->SetProperty(prop1);
-    windowActor->SetPosition(17, -5, 0);
-    windowActor->RotateY(90);
+    /** Blue Fish **/
+    vtkSmartPointer<vtkOBJReader> blueFishReader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    blueFishReader->SetFileName("../Models/obj/fish2.obj");                                                            
+    blueFishReader->Update(); 
 
-    // BLUE FISH 
-    vtkSmartPointer<vtkOBJReader> reader3 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader3->SetFileName("../Models/obj/fish2.obj");                                                            
-    reader3->Update(); 
+    vtkSmartPointer<vtkCustomMapperP> blueFishMapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    blueFishMapper->SetInputConnection(blueFishReader->GetOutputPort()); 
 
-    vtkSmartPointer<vtk441MapperPart1> windowMapper3 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    windowMapper3->SetInputConnection(reader3->GetOutputPort()); 
+    vtkSmartPointer<vtkActor> blueFishActor = vtkSmartPointer<vtkActor>::New();
 
-    vtkSmartPointer<vtkActor> windowActor3 = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkProperty> blueFishProp = vtkSmartPointer<vtkProperty>::New();
+    blueFishProp->SetDiffuseColor(.011, .103, 1.0);
+    blueFishActor->SetMapper(blueFishMapper);
+    blueFishActor->SetProperty(blueFishProp);
+    blueFishActor->SetPosition(-7, 0, 0);
+    blueFishActor->RotateY(90);
 
-    vtkSmartPointer<vtkProperty> prop3 = vtkSmartPointer<vtkProperty>::New();
-    prop3->SetDiffuseColor(.011, .103, 1.0);
-    windowActor3->SetMapper(windowMapper3);
-    windowActor3->SetProperty(prop3);
-    windowActor3->SetPosition(-7, 0, 0);
-    windowActor3->RotateY(90);
+    /** Yellow Fish **/
+    vtkSmartPointer<vtkOBJReader> yellowFishReader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    yellowFishReader->SetFileName("../Models/obj/fish3.obj");
+    yellowFishReader->Update(); 
 
-    // CORAL 1 
-    vtkSmartPointer<vtkOBJReader> reader4 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader4->SetFileName("../Models/obj/coral1.obj");
-    reader4->Update(); 
+    vtkSmartPointer<vtkCustomMapperP> yellowFishMapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    yellowFishMapper->SetInputConnection(yellowFishReader->GetOutputPort()); 
 
-    vtkSmartPointer<vtk441MapperPart1> windowMapper4 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    windowMapper4->SetInputConnection(reader4->GetOutputPort()); 
+    vtkSmartPointer<vtkActor> yellowFishActor = vtkSmartPointer<vtkActor>::New();
 
-    vtkSmartPointer<vtkActor> windowActor4 = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkProperty> yellowFishProp = vtkSmartPointer<vtkProperty>::New();
+    yellowFishProp->SetDiffuseColor(1.0, 0.854, 0.0);
+    yellowFishActor->SetMapper(yellowFishMapper);
+    yellowFishActor->SetProperty(yellowFishProp);
+    yellowFishActor->SetPosition(-17, -5, 0);
+    yellowFishActor->RotateY(90);
 
-    vtkSmartPointer<vtkProperty> prop4 = vtkSmartPointer<vtkProperty>::New();
-    prop4->SetDiffuseColor(1.0, 0.065, 0.865);
-    windowActor4->SetMapper(windowMapper4);
-    windowActor4->SetProperty(prop4);
-    windowActor4->SetScale(2.5);
-    windowActor4->SetPosition(-9, -10, -17);
+    /** Coral-1 **/
+    vtkSmartPointer<vtkOBJReader> coral1Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    coral1Reader->SetFileName("../Models/obj/coral1.obj");
+    coral1Reader->Update(); 
 
-    // CORAL 2 
-    vtkSmartPointer<vtkOBJReader> reader14 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader14->SetFileName("../Models/obj/coral2.obj");
-    reader14->Update(); 
+    vtkSmartPointer<vtkCustomMapperP> coral1Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    coral1Mapper->SetInputConnection(coral1Reader->GetOutputPort()); 
 
-    vtkSmartPointer<vtk441MapperPart1> windowMapper14 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    windowMapper14->SetInputConnection(reader14->GetOutputPort()); 
+    vtkSmartPointer<vtkActor> coral1Actor = vtkSmartPointer<vtkActor>::New();
 
-    vtkSmartPointer<vtkActor> winAct14 = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkProperty> coral1Prop = vtkSmartPointer<vtkProperty>::New();
+    coral1Prop->SetDiffuseColor(1.0, 0.065, 0.865);
+    coral1Actor->SetMapper(coral1Mapper);
+    coral1Actor->SetProperty(coral1Prop);
+    coral1Actor->SetScale(2.5);
+    coral1Actor->SetPosition(-9, -10, -17);
 
-    winAct14->SetMapper(windowMapper14);
-    winAct14->SetProperty(prop4);
-    winAct14->SetScale(2.5);
-    winAct14->SetPosition(-1, -10, -15);
-    //winAct14->RotateY(105);
+    /** Coral-2 **/
+    vtkSmartPointer<vtkOBJReader> coral2Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    coral2Reader->SetFileName("../Models/obj/coral2.obj");
+    coral2Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> coral2Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    coral2Mapper->SetInputConnection(coral2Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> coral2Actor = vtkSmartPointer<vtkActor>::New();
+
+    coral2Actor->SetMapper(coral2Mapper);
+    coral2Actor->SetProperty(coral1Prop);
+    coral2Actor->SetScale(2.5);
+    coral2Actor->SetPosition(-1, -10, -15);
     
-    // SHELL 
-    vtkSmartPointer<vtkOBJReader> r24 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    r24->SetFileName("../Models/obj/shell.obj");
-    r24->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap24 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap24->SetInputConnection(r24->GetOutputPort()); 
+    /** Shell **/
+    vtkSmartPointer<vtkOBJReader> shellReader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    shellReader->SetFileName("../Models/obj/shell.obj");
+    shellReader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> shellMapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    shellMapper->SetInputConnection(shellReader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> shellActor = vtkSmartPointer<vtkActor>::New();
+
+    vtkSmartPointer<vtkProperty> shellProp = vtkSmartPointer<vtkProperty>::New();
+    shellProp->SetDiffuseColor(1, .6, 0);
+    shellActor->SetMapper(shellMapper);
+    shellActor->SetProperty(shellProp);
+    shellActor->SetPosition(4, -10, -12);
+
+    /** Leaf-1**/
+    vtkSmartPointer<vtkOBJReader> leaf1Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    leaf1Reader->SetFileName("../Models/obj/leaf1.obj");
+    leaf1Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> leaf1Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    leaf1Mapper->SetInputConnection(leaf1Reader->GetOutputPort()); 
 
-    vtkSmartPointer<vtkActor> winAct24 = vtkSmartPointer<vtkActor>::New();
-
-    vtkSmartPointer<vtkProperty> prop24 = vtkSmartPointer<vtkProperty>::New();
-    prop24->SetDiffuseColor(1, .6, 0);
-    winAct24->SetMapper(winMap24);
-    winAct24->SetProperty(prop24);
-    winAct24->SetPosition(4, -10, -12);
-    //winAct24->RotateY(105);
-
-    // YELLOW FISH 
-    vtkSmartPointer<vtkOBJReader> reader5 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader5->SetFileName("../Models/obj/fish3.obj");
-    reader5->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> windowMapper5 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    windowMapper5->SetInputConnection(reader5->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> windowActor5 = vtkSmartPointer<vtkActor>::New();
-
-    vtkSmartPointer<vtkProperty> prop5 = vtkSmartPointer<vtkProperty>::New();
-    prop5->SetDiffuseColor(1.0, 0.854, 0.0);
-    windowActor5->SetMapper(windowMapper5);
-    windowActor5->SetProperty(prop5);
-    windowActor5->SetPosition(-17, -5, 0);
-    windowActor5->RotateY(90);
-
-    // Leaf 1
-    vtkSmartPointer<vtkOBJReader> reader6 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader6->SetFileName("../Models/obj/leaf1.obj");
-    reader6->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> windowMapper6 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    windowMapper6->SetInputConnection(reader6->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> windowActor6 = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkActor> leaf1Actor = vtkSmartPointer<vtkActor>::New();
+
+    vtkSmartPointer<vtkProperty> leaf1Prop = vtkSmartPointer<vtkProperty>::New();
+    leaf1Prop->SetDiffuseColor(0.0, 0.8, 0.0);
+    leaf1Actor->SetMapper(leaf1Mapper);
+    leaf1Actor->SetProperty(leaf1Prop);
+    leaf1Actor->SetScale(3.0);
+    leaf1Actor->SetPosition(-23, -10, -17);
+
+    /** Leaf-2 **/
+    vtkSmartPointer<vtkCustomMapperP> leaf2Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    leaf2Mapper->SetInputConnection(leaf1Reader->GetOutputPort()); 
 
-    vtkSmartPointer<vtkProperty> prop6 = vtkSmartPointer<vtkProperty>::New();
-    prop6->SetDiffuseColor(0.0, 0.8, 0.0);
-    windowActor6->SetMapper(windowMapper6);
-    windowActor6->SetProperty(prop6);
-    windowActor6->SetScale(3.0);
-    windowActor6->SetPosition(-23, -10, -17);
-
-    // Leaf 1 (2)
-    vtkSmartPointer<vtk441MapperPart1> winMap12 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap12->SetInputConnection(reader6->GetOutputPort()); 
+    vtkSmartPointer<vtkActor> leaf2Actor = vtkSmartPointer<vtkActor>::New();
+
+    leaf2Actor->SetMapper(leaf2Mapper);
+    leaf2Actor->SetProperty(leaf1Prop);
+    leaf2Actor->SetScale(3.0);
+    leaf2Actor->SetPosition(-19, -10, -17);
+
+    /** Leaf-3 **/
+    vtkSmartPointer<vtkCustomMapperP> leaf3Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    leaf3Mapper->SetInputConnection(leaf1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> leaf3Actor = vtkSmartPointer<vtkActor>::New();
+
+    leaf3Actor->SetMapper(leaf3Mapper);
+    leaf3Actor->SetProperty(leaf1Prop);
+    leaf3Actor->SetScale(2.7);
+    leaf3Actor->SetPosition(-15, -10, -12);
+
+    /** Leaf-4 **/
+    vtkSmartPointer<vtkCustomMapperP> leaf4Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    leaf4Mapper->SetInputConnection(leaf1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> leaf4Actor = vtkSmartPointer<vtkActor>::New();
+
+    leaf4Actor->SetMapper(leaf4Mapper);
+    leaf4Actor->SetProperty(leaf1Prop);
+    leaf4Actor->SetScale(2.2);
+    leaf4Actor->SetPosition(-10, -10, -12);
+    leaf4Actor->RotateY(90);
+
+    /** Leaf-5 **/
+    vtkSmartPointer<vtkCustomMapperP> leaf5Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    leaf5Mapper->SetInputConnection(leaf1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> leaf5Actor = vtkSmartPointer<vtkActor>::New();
+
+    leaf5Actor->SetMapper(leaf5Mapper);
+    leaf5Actor->SetProperty(leaf1Prop);
+    leaf5Actor->SetScale(2.);
+    leaf5Actor->SetPosition(-5.5, -10, -14);
+    leaf5Actor->RotateY(45);
+
+    /** Submarine **/
+    vtkSmartPointer<vtkOBJReader> submarineReader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    submarineReader->SetFileName("../Models/obj/submarine.obj");
+    submarineReader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> submarineMapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    submarineMapper->SetInputConnection(submarineReader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> submarineActor = vtkSmartPointer<vtkActor>::New();
+
+    vtkSmartPointer<vtkProperty> submarineProp = vtkSmartPointer<vtkProperty>::New();
+    submarineProp->SetDiffuseColor(0.012, 0.342, 0.01);
+    submarineActor->SetMapper(submarineMapper);
+    submarineActor->SetProperty(submarineProp);
+    submarineActor->SetPosition(13, -9, 8.5);
+    submarineActor->SetScale(2);
+    submarineActor->RotateX(-15);
+    submarineActor->RotateY(-60);
+
+    /** Tree-1 **/
+    vtkSmartPointer<vtkOBJReader> tree1Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    tree1Reader->SetFileName("../Models/obj/tree1.obj");
+    tree1Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> tree1Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    tree1Mapper->SetInputConnection(tree1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> tree1Actor = vtkSmartPointer<vtkActor>::New();
+
+    vtkSmartPointer<vtkProperty> tree1Prop = vtkSmartPointer<vtkProperty>::New();
+    tree1Prop->SetDiffuseColor(0.016, 0.8, 0.035);
+    tree1Actor->SetMapper(tree1Mapper);
+    tree1Actor->SetScale(2.5);
+    tree1Actor->SetProperty(tree1Prop);
+    tree1Actor->SetPosition(-21, -10, -17);
 
-    vtkSmartPointer<vtkActor> winAct12 = vtkSmartPointer<vtkActor>::New();
+    tree1Mapper->displayAxes = false;
 
-    winAct12->SetMapper(winMap12);
-    winAct12->SetProperty(prop6);
-    winAct12->SetScale(3.0);
-    winAct12->SetPosition(-19, -10, -17);
-
-    // Leaf 1 (3)
-    vtkSmartPointer<vtk441MapperPart1> winMap13 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap13->SetInputConnection(reader6->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct13 = vtkSmartPointer<vtkActor>::New();
-
-    winAct13->SetMapper(winMap13);
-    winAct13->SetProperty(prop6);
-    winAct13->SetScale(2.7);
-    winAct13->SetPosition(-15, -10, -12);
-
-    // Leaf 1 (4)
-    vtkSmartPointer<vtk441MapperPart1> winMap16 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap16->SetInputConnection(reader6->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct16 = vtkSmartPointer<vtkActor>::New();
-
-    winAct16->SetMapper(winMap16);
-    winAct16->SetProperty(prop6);
-    winAct16->SetScale(2.2);
-    winAct16->SetPosition(-10, -10, -12);
-    winAct16->RotateY(90);
-
-    // Leaf 1 (5)
-    vtkSmartPointer<vtk441MapperPart1> winMap17 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap17->SetInputConnection(reader6->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct17 = vtkSmartPointer<vtkActor>::New();
-
-    winAct17->SetMapper(winMap17);
-    winAct17->SetProperty(prop6);
-    winAct17->SetScale(2.);
-    winAct17->SetPosition(-5.5, -10, -14);
-    winAct17->RotateY(45);
-
-    // Submarine 
-    vtkSmartPointer<vtkOBJReader> reader7 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader7->SetFileName("../Models/obj/submarine.obj");
-    reader7->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> windowMapper7 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    windowMapper7->SetInputConnection(reader7->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> windowActor7 = vtkSmartPointer<vtkActor>::New();
-
-    vtkSmartPointer<vtkProperty> prop7 = vtkSmartPointer<vtkProperty>::New();
-    prop7->SetDiffuseColor(0.012, 0.342, 0.01);
-    windowActor7->SetMapper(windowMapper7);
-    windowActor7->SetProperty(prop7);
-    windowActor7->SetPosition(13, -9, 8.5);
-    windowActor7->SetScale(2);
-    windowActor7->RotateX(-15);
-    windowActor7->RotateY(-60);
-
-    // Tree
-    vtkSmartPointer<vtkOBJReader> reader8 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader8->SetFileName("../Models/obj/tree1.obj");
-    reader8->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap8 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap8->SetInputConnection(reader8->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct8 = vtkSmartPointer<vtkActor>::New();
-
-    vtkSmartPointer<vtkProperty> prop8 = vtkSmartPointer<vtkProperty>::New();
-    prop8->SetDiffuseColor(0.016, 0.8, 0.035);
-    winAct8->SetMapper(winMap8);
-    winAct8->SetScale(2.5);
-    winAct8->SetProperty(prop8);
-    winAct8->SetPosition(-21, -10, -17);
-
-    winMap8->displayAxes = false;
-
-    // Tree (2)
-
-    vtkSmartPointer<vtk441MapperPart1> winMap10 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap10->SetInputConnection(reader8->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct10 = vtkSmartPointer<vtkActor>::New();
-
-    winAct10->SetMapper(winMap10);
-    winAct10->SetScale(2.);
-    winAct10->SetProperty(prop8);
-    winAct10->RotateY(45);
-    winAct10->SetPosition(-16, -10, -15);
-    winMap10->displayAxes = false;
-
-    // Tree (3)
-
-    vtkSmartPointer<vtk441MapperPart1> winMap11 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap11->SetInputConnection(reader8->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct11 = vtkSmartPointer<vtkActor>::New();
-
-    winAct11->SetMapper(winMap11);
-    winAct11->SetScale(1.5);
-    winAct11->SetProperty(prop8);
-    winAct11->RotateY(62);
-    winAct11->SetPosition(-18.5, -10, -11);
-    winMap11->displayAxes = false;
-
-    // Tree Spire 
-    vtkSmartPointer<vtkOBJReader> r9 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    r9->SetFileName("../Models/obj/treespire.obj");
-    r9->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap9 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap9->SetInputConnection(r9->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct9 = vtkSmartPointer<vtkActor>::New();
-
-    vtkSmartPointer<vtkProperty> prop9 = vtkSmartPointer<vtkProperty>::New();
-    prop9->SetDiffuseColor(1.0, 0.0, 0.429);
-    winAct9->SetMapper(winMap9);
-    winAct9->SetProperty(prop9);
-    winAct9->SetPosition(16, -10, -13);
-    winAct9->SetScale(3);
-
-    // Tree Spire 2 
-    vtkSmartPointer<vtkOBJReader> r18 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    r18->SetFileName("../Models/obj/treespire2.obj");
-    r18->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap18 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap18->SetInputConnection(r18->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct18 = vtkSmartPointer<vtkActor>::New();
-
-    winAct18->SetMapper(winMap18);
-    winAct18->SetProperty(prop9);
-    winAct18->SetPosition(22, -10, -15);
-    winAct18->SetScale(3);
-
-    // Tree Spire (2) 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap19 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap19->SetInputConnection(r9->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct19 = vtkSmartPointer<vtkActor>::New();
-
-    winAct19->SetMapper(winMap19);
-    winAct19->SetProperty(prop9);
-    winAct19->SetPosition(18, -10, -8);
-    winAct19->RotateY(40);
-    winAct19->SetScale(2.5);
-
-    // Rock 1 
-    vtkSmartPointer<vtkOBJReader> r15 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    r15->SetFileName("../Models/obj/rock1.obj");
-    r15->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap15 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap15->SetInputConnection(r15->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct15 = vtkSmartPointer<vtkActor>::New();
-
-    vtkSmartPointer<vtkProperty> prop15 = vtkSmartPointer<vtkProperty>::New();
-    prop15->SetDiffuseColor(.3, .5, .95);
-    winAct15->SetMapper(winMap15);
-    winAct15->SetProperty(prop15);
-    winAct15->SetPosition(-5, -10, -11);
-    winAct15->SetScale(.75);
-
-    // Rock 3 
-    vtkSmartPointer<vtkOBJReader> r25 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    r25->SetFileName("../Models/obj/rock3.obj");
-    r25->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap25 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap25->SetInputConnection(r25->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct25 = vtkSmartPointer<vtkActor>::New();
-
-    vtkSmartPointer<vtkProperty> prop25 = vtkSmartPointer<vtkProperty>::New();
-    prop25->SetDiffuseColor(1, .1, .865);
-    winAct25->SetMapper(winMap25);
-    winAct25->SetProperty(prop25);
-    winAct25->SetPosition(-11, -9, 8);
-    winAct25->SetScale(.75);
-
-
-    // Rock 2 
-    vtkSmartPointer<vtkOBJReader> r26 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    r26->SetFileName("../Models/obj/rock2.obj");
-    r26->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap26 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap26->SetInputConnection(r26->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct26 = vtkSmartPointer<vtkActor>::New();
-
-    vtkSmartPointer<vtkProperty> prop26 = vtkSmartPointer<vtkProperty>::New();
-    prop26->SetDiffuseColor(0.016, 0.8, 0.035);
-    winAct26->SetMapper(winMap26);
-    winAct26->SetProperty(prop26);
-    winAct26->SetPosition(11, -10, -12);
-    winAct26->SetScale(.75);
-
-    // Shell with Pearl part1
-    vtkSmartPointer<vtkOBJReader> r20 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    r20->SetFileName("../Models/obj/shellwithpearl_white.obj");
-    r20->Update(); 
-
-    vtkSmartPointer<vtk441MapperPart1> winMap20 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap20->SetInputConnection(r20->GetOutputPort()); 
-
-    vtkSmartPointer<vtkActor> winAct20 = vtkSmartPointer<vtkActor>::New();
-
-    winAct20->SetMapper(winMap20);
-    //winAct20->SetProperty(prop15);
-    winAct20->SetPosition(-16, -8.5, 7);
-    winAct20->SetScale(2);
+    /** Tree-2  **/
+    vtkSmartPointer<vtkCustomMapperP> tree2Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    tree2Mapper->SetInputConnection(tree1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> tree2Actor = vtkSmartPointer<vtkActor>::New();
+
+    tree2Actor->SetMapper(tree2Mapper);
+    tree2Actor->SetScale(2.);
+    tree2Actor->SetProperty(tree1Prop);
+    tree2Actor->RotateY(45);
+    tree2Actor->SetPosition(-16, -10, -15);
+    tree2Mapper->displayAxes = false;
+
+    /** Tree-3 **/
+    vtkSmartPointer<vtkCustomMapperP> tree3Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    tree3Mapper->SetInputConnection(tree1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> tree3Actor = vtkSmartPointer<vtkActor>::New();
+
+    tree3Actor->SetMapper(tree3Mapper);
+    tree3Actor->SetScale(1.5);
+    tree3Actor->SetProperty(tree1Prop);
+    tree3Actor->RotateY(62);
+    tree3Actor->SetPosition(-18.5, -10, -11);
+    tree3Mapper->displayAxes = false;
+
+    /** TreeSpire-1 **/
+    vtkSmartPointer<vtkOBJReader> treeSpire1Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    treeSpire1Reader->SetFileName("../Models/obj/treespire.obj");
+    treeSpire1Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> treeSpire1Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    treeSpire1Mapper->SetInputConnection(treeSpire1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> treeSpire1Actor = vtkSmartPointer<vtkActor>::New();
+
+    vtkSmartPointer<vtkProperty> treeSpire1Prop = vtkSmartPointer<vtkProperty>::New();
+    treeSpire1Prop->SetDiffuseColor(1.0, 0.0, 0.429);
+    treeSpire1Actor->SetMapper(treeSpire1Mapper);
+    treeSpire1Actor->SetProperty(treeSpire1Prop);
+    treeSpire1Actor->SetPosition(16, -10, -13);
+    treeSpire1Actor->SetScale(3);
+
+    /** TreeSpire-2 **/
+    vtkSmartPointer<vtkOBJReader> treeSpire2Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    treeSpire2Reader->SetFileName("../Models/obj/treespire2.obj");
+    treeSpire2Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> treeSpire2Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    treeSpire2Mapper->SetInputConnection(treeSpire2Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> treeSpire2Actor = vtkSmartPointer<vtkActor>::New();
+
+    treeSpire2Actor->SetMapper(treeSpire2Mapper);
+    treeSpire2Actor->SetProperty(treeSpire1Prop);
+    treeSpire2Actor->SetPosition(22, -10, -15);
+    treeSpire2Actor->SetScale(3);
+
+    /** TreeSpire-3 **/
+    vtkSmartPointer<vtkCustomMapperP> treeSpire3Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    treeSpire3Mapper->SetInputConnection(treeSpire1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> treeSpire3Actor = vtkSmartPointer<vtkActor>::New();
+
+    treeSpire3Actor->SetMapper(treeSpire3Mapper);
+    treeSpire3Actor->SetProperty(treeSpire1Prop);
+    treeSpire3Actor->SetPosition(18, -10, -8);
+    treeSpire3Actor->RotateY(40);
+    treeSpire3Actor->SetScale(2.5);
+
+    /** Rock-1 **/
+    vtkSmartPointer<vtkOBJReader> rock1Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    rock1Reader->SetFileName("../Models/obj/rock1.obj");
+    rock1Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> rock1Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    rock1Mapper->SetInputConnection(rock1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> rock1Actor = vtkSmartPointer<vtkActor>::New();
+
+    vtkSmartPointer<vtkProperty> rock1Prop = vtkSmartPointer<vtkProperty>::New();
+    rock1Prop->SetDiffuseColor(.3, .5, .95);
+    rock1Actor->SetMapper(rock1Mapper);
+    rock1Actor->SetProperty(rock1Prop);
+    rock1Actor->SetPosition(-5, -10, -11);
+    rock1Actor->SetScale(.75);
+
+    /** Rock-3 **/
+    vtkSmartPointer<vtkOBJReader> rock3Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    rock3Reader->SetFileName("../Models/obj/rock3.obj");
+    rock3Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> rock3Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    rock3Mapper->SetInputConnection(rock3Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> rock3Actor = vtkSmartPointer<vtkActor>::New();
+
+    vtkSmartPointer<vtkProperty> rock3Prop = vtkSmartPointer<vtkProperty>::New();
+    rock3Prop->SetDiffuseColor(1, .1, .865);
+    rock3Actor->SetMapper(rock3Mapper);
+    rock3Actor->SetProperty(rock3Prop);
+    rock3Actor->SetPosition(-11, -9, 8);
+    rock3Actor->SetScale(.75);
+
+    /** Rock-2 **/
+    vtkSmartPointer<vtkOBJReader> rock2Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    rock2Reader->SetFileName("../Models/obj/rock2.obj");
+    rock2Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> rock2Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    rock2Mapper->SetInputConnection(rock2Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> rock2Actor = vtkSmartPointer<vtkActor>::New();
+
+    vtkSmartPointer<vtkProperty> rock2Prop = vtkSmartPointer<vtkProperty>::New();
+    rock2Prop->SetDiffuseColor(0.016, 0.8, 0.035);
+    rock2Actor->SetMapper(rock2Mapper);
+    rock2Actor->SetProperty(rock2Prop);
+    rock2Actor->SetPosition(11, -10, -12);
+    rock2Actor->SetScale(.75);
+
+    /** ShellPearl-1 **/
+    vtkSmartPointer<vtkOBJReader> shellPearl1Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    shellPearl1Reader->SetFileName("../Models/obj/shellwithpearl_white.obj");
+    shellPearl1Reader->Update(); 
+
+    vtkSmartPointer<vtkCustomMapperP> shellPearl1Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    shellPearl1Mapper->SetInputConnection(shellPearl1Reader->GetOutputPort()); 
+
+    vtkSmartPointer<vtkActor> shellPearl1Actor = vtkSmartPointer<vtkActor>::New();
+
+    shellPearl1Actor->SetMapper(shellPearl1Mapper);
+    shellPearl1Actor->SetPosition(-16, -8.5, 7);
+    shellPearl1Actor->SetScale(2);
     
-    // Shell with Pearl part2 
-    vtkSmartPointer<vtkOBJReader> r21 = vtkSmartPointer<vtkOBJReader>::New();                                                           
-    r21->SetFileName("../Models/obj/shellwithpearl_purple.obj");
-    r21->Update(); 
+    /** ShellPearl-2 **/
+    vtkSmartPointer<vtkOBJReader> shellPearl2Reader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    shellPearl2Reader->SetFileName("../Models/obj/shellwithpearl_purple.obj");
+    shellPearl2Reader->Update(); 
 
-    vtkSmartPointer<vtk441MapperPart1> winMap21 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap21->SetInputConnection(r21->GetOutputPort()); 
+    vtkSmartPointer<vtkCustomMapperP> shellPearl2Mapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    shellPearl2Mapper->SetInputConnection(shellPearl2Reader->GetOutputPort()); 
 
-    vtkSmartPointer<vtkActor> winAct21 = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkActor> shellPearl2Actor = vtkSmartPointer<vtkActor>::New();
 
-    vtkSmartPointer<vtkProperty> prop21 = vtkSmartPointer<vtkProperty>::New();
-    prop21->SetDiffuseColor(1., .5, .0);
-    winAct21->SetMapper(winMap21);
-    winAct21->SetProperty(prop21);
-    winAct21->SetPosition(-16, -9, 7);
-    winAct21->SetScale(2);
+    vtkSmartPointer<vtkProperty> shellPearl2Prop = vtkSmartPointer<vtkProperty>::New();
+    shellPearl2Prop->SetDiffuseColor(1., .5, .0);
+    shellPearl2Actor->SetMapper(shellPearl2Mapper);
+    shellPearl2Actor->SetProperty(shellPearl2Prop);
+    shellPearl2Actor->SetPosition(-16, -9, 7);
+    shellPearl2Actor->SetScale(2);
 
-    //FLOOR
-    vtkSmartPointer<vtkOBJReader> reader2 =                                                            
-      vtkSmartPointer<vtkOBJReader>::New();                                                           
-    reader2->SetFileName("../Models/obj/floor.obj");
-    reader2->Update(); 
+    /** Fish tank floor **/
+    vtkSmartPointer<vtkOBJReader> floorReader = vtkSmartPointer<vtkOBJReader>::New();                                                           
+    floorReader->SetFileName("../Models/obj/floor.obj");
+    floorReader->Update(); 
 
-    vtkSmartPointer<vtk441MapperPart1> windowMapper2 =                                                       
-      vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    windowMapper2->SetInputConnection(reader2->GetOutputPort()); 
+    vtkSmartPointer<vtkCustomMapperP> floorMapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    floorMapper->SetInputConnection(floorReader->GetOutputPort()); 
 
-    vtkSmartPointer<vtkActor> windowActor2 =
-      vtkSmartPointer<vtkActor>::New();
-    vtkSmartPointer<vtkProperty> p = vtkSmartPointer<vtkProperty>::New();
-    p->SetDiffuseColor(0.0,0.0,0.35);
-    windowActor2->SetMapper(windowMapper2);
-    windowActor2->SetProperty(p);
-    windowActor2->SetScale(3.5);
-    windowActor2->SetPosition(0, -10, 0); 
+    vtkSmartPointer<vtkActor> floorActor = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkProperty> floorProp = vtkSmartPointer<vtkProperty>::New();
+    floorProp->SetDiffuseColor(0.0,0.0,0.35);
+    floorActor->SetMapper(floorMapper);
+    floorActor->SetProperty(floorProp);
+    floorActor->SetScale(3.5);
+    floorActor->SetPosition(0, -10, 0); 
 
-    // BACKING
-    vtkSmartPointer<vtkOBJReader> r22 = vtkSmartPointer<vtkOBJReader>::New();
-    r22->SetFileName("../Models/obj/background.obj");
-    r22->Update(); 
+    /** Fish tank backing **/
+    vtkSmartPointer<vtkOBJReader> backgroundReader = vtkSmartPointer<vtkOBJReader>::New();
+    backgroundReader->SetFileName("../Models/obj/background.obj");
+    backgroundReader->Update(); 
 
-    vtkSmartPointer<vtk441MapperPart1> winMap22 = vtkSmartPointer<vtk441MapperPart1>::New();                                                      
-    winMap22->SetInputConnection(r22->GetOutputPort()); 
+    vtkSmartPointer<vtkCustomMapperP> backgroundMapper = vtkSmartPointer<vtkCustomMapperP>::New();                                                      
+    backgroundMapper->SetInputConnection(backgroundReader->GetOutputPort()); 
 
-    vtkSmartPointer<vtkActor> winAct22 = vtkSmartPointer<vtkActor>::New();
-    vtkSmartPointer<vtkProperty> p21 = vtkSmartPointer<vtkProperty>::New();
-    p21->SetDiffuseColor(0.0,0.0,0.15);
-    winAct22->SetMapper(winMap22);
-    winAct22->SetProperty(p21);
-    winAct22->SetScale(3.5);
-    winAct22->RotateY(90);
-    winAct22->SetPosition(0, -11, -18); 
+    vtkSmartPointer<vtkActor> backgroundActor = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkProperty> backgroundProp = vtkSmartPointer<vtkProperty>::New();
+    backgroundProp->SetDiffuseColor(0.0,0.0,0.15);
+    backgroundActor->SetMapper(backgroundMapper);
+    backgroundActor->SetProperty(backgroundProp);
+    backgroundActor->SetScale(3.5);
+    backgroundActor->RotateY(90);
+    backgroundActor->SetPosition(0, -11, -18); 
 
-// END NEW STUFF
-    vtkSmartPointer<vtkRenderer> renderer =
-      vtkSmartPointer<vtkRenderer>::New();
+    /**** End model reading ****/
 
-    vtkSmartPointer<vtkRenderWindow> windowRenderer =
-      vtkSmartPointer<vtkRenderWindow>::New();
+    vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
+
+    vtkSmartPointer<vtkRenderWindow> windowRenderer = vtkSmartPointer<vtkRenderWindow>::New();
     windowRenderer->AddRenderer(renderer);
     renderer->SetViewport(0, 0, 1, 1);
 
-    vtkSmartPointer<vtkRenderWindowInteractor> iren =
-      vtkSmartPointer<vtkRenderWindowInteractor>::New();
+    vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
     iren->SetRenderWindow(windowRenderer);
 
     // Add the actors to the renderer, set the background and size.
-    renderer->AddActor(windowActor);
-    renderer->AddActor(windowActor2);
-    renderer->AddActor(windowActor3);
-    renderer->AddActor(windowActor4);
-    renderer->AddActor(windowActor5);
-    renderer->AddActor(windowActor6);
-    renderer->AddActor(windowActor7);  //sub
-    renderer->AddActor(winAct8);
-    renderer->AddActor(winAct9);
-    renderer->AddActor(winAct10);
-    renderer->AddActor(winAct11);
-    renderer->AddActor(winAct12);
-    renderer->AddActor(winAct13);
-    renderer->AddActor(winAct14);
-    renderer->AddActor(winAct15);
-    renderer->AddActor(winAct16);
-    renderer->AddActor(winAct17);
-    renderer->AddActor(winAct18);
-    renderer->AddActor(winAct19);
-    renderer->AddActor(winAct20);
-    renderer->AddActor(winAct21);
-    renderer->AddActor(winAct22);
-    renderer->AddActor(winAct24);
-    renderer->AddActor(winAct25);
-    renderer->AddActor(winAct26);
+    renderer->AddActor(goldFishActor);
+    renderer->AddActor(floorActor);
+    renderer->AddActor(blueFishActor);
+    renderer->AddActor(yellowFishActor);
+    renderer->AddActor(submarineActor);  
+    renderer->AddActor(tree1Actor);
+    renderer->AddActor(tree2Actor);
+    renderer->AddActor(tree3Actor);
+    renderer->AddActor(leaf1Actor);
+    renderer->AddActor(leaf2Actor);
+    renderer->AddActor(leaf3Actor);
+    renderer->AddActor(leaf4Actor);
+    renderer->AddActor(leaf5Actor);
+    renderer->AddActor(coral1Actor);
+    renderer->AddActor(coral2Actor);
+    renderer->AddActor(treeSpire1Actor);
+    renderer->AddActor(treeSpire2Actor);
+    renderer->AddActor(treeSpire3Actor);
+    renderer->AddActor(shellPearl1Actor);
+    renderer->AddActor(shellPearl2Actor);
+    renderer->AddActor(backgroundActor);
+    renderer->AddActor(shellActor);
+    renderer->AddActor(rock1Actor);
+    renderer->AddActor(rock2Actor);
+    renderer->AddActor(rock3Actor);
     renderer->SetBackground(0, 0, 0);
-    //renderer->SetBackground2(255, 255, 255);
-    //renderer->GradientBackgroundOn();
     windowRenderer->SetSize(650, 650);
 
     // Set up the lighting.
@@ -743,80 +663,29 @@ int main()
     renderer->GetActiveCamera()->SetClippingRange(20, 120);
     renderer->GetActiveCamera()->SetDistance(170);
 
-    //DEBUG
-    //renderer->GetLights()->PrintSelf(cerr, vtkIndent());
-    //renderer->GetLights()->Print(cerr);
     renderer->RemoveAllLights();
     vtkSmartPointer<vtkLight> l = vtkSmartPointer<vtkLight>::New();
-    l->SetAmbientColor(0.15, 0.15, 0.15); //doesn't seem to do anything :^/
+    l->SetAmbientColor(0.15, 0.15, 0.15); 
     l->SetPosition(0.0,1.5,1.0);
     l->SetFocalPoint(0,0,0);
     vtkSmartPointer<vtkLight> l2 = vtkSmartPointer<vtkLight>::New();
-    l2->SetAmbientColor(0.0, 0.0, 0.5); //doesn't seem to do anything :^/
-    //l2->SetDiffuseColor(0.0, 0.0, 0.15); //doesn't seem to do anything :^/
+    l2->SetAmbientColor(0.0, 0.0, 0.5); 
     l2->SetPosition(0.0,0.0,9.9);
     l2->SetFocalPoint(0,0,0);
     renderer->AddLight(l);
     renderer->AddLight(l2);
-    
    
-    vtkSmartPointer<vtkInteractorStyleJoystickCamera> style = 
-      vtkSmartPointer<vtkInteractorStyleJoystickCamera>::New();
+    vtkSmartPointer<vtkInteractorStyleJoystickCamera> style = vtkSmartPointer<vtkInteractorStyleJoystickCamera>::New();
   
-    iren->SetInteractorStyle( style ); 
-    // This starts the event loop and invokes an initial render.
-    //((vtkInteractorStyle *)iren->GetInteractorStyle())->SetAutoAdjustCameraClippingRange(0);
+    iren->SetInteractorStyle(style); 
+    // Start the event loop and invoke an initial render.
     iren->Initialize();
-/*
-    // Sign up to receive TimerEvent
-    vtkSmartPointer<vtkTimerCallback> cb = 
-      vtkSmartPointer<vtkTimerCallback>::New();
-    iren->AddObserver(vtkCommand::TimerEvent, cb);
-    cb->SetMapper(windowMapper);
-    cb->SetRenderWindow(windowRenderer);
-    cb->SetCamera(renderer->GetActiveCamera());
 
-    // Setup keypress event handling
-    vtkSmartPointer<vtkCallbackCommand> keypressCallback = 
-      vtkSmartPointer<vtkCallbackCommand>::New();
-    keypressCallback->SetCallback ( KeypressCallbackFunction );
-    iren->AddObserver ( vtkCommand::KeyPressEvent, keypressCallback );
-*/
-    //int timerId = iren->CreateRepeatingTimer(30);  // repeats every 30 milliseconds, ~30 FPS
-    //std::cout << "timerId: " << timerId << std::endl;  
-
-    fish = windowMapper; 
+    fish = goldFishMapper; 
     window = windowRenderer;
 
     iren->Start();
 
     return EXIT_SUCCESS;
 }
-
-void KeypressCallbackFunction( vtkObject* caller, long unsigned int vtkNotUsed(eventId), void* vtkNotUsed(clientData), void* vtkNotUsed(callData) )
-{
-    //std::cout << "Keypress callback" << std::endl;
-   
-    vtkRenderWindowInteractor *iren = static_cast<vtkRenderWindowInteractor*>(caller);
-    
-    std::string key = iren->GetKeySym();
-    //std::cout << "Pressed: " << iren->GetKeySym() << std::endl;
-    if (key == "Left")
-        fish->rotateLeft = true;
-    if (key == "Right")
-        fish->rotateRight = true;
-    if (key == "a")
-        fish->ascend = true;
-    if (key == "z")
-        fish->descend = true;
-    if (key == "Up")
-        fish->moveForward = true;
-    if (key == "Down")
-        fish->moveBackward = true;
-    //window->Render();
-
-}
-
-
-
 
